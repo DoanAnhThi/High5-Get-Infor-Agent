@@ -13,17 +13,47 @@ Một chatbot đơn giản được xây dựng bằng Streamlit với bot giả
 
 ## 🚀 Cài đặt và chạy
 
-### 1. Cài đặt dependencies
+### Cách 1: Chạy với Docker (Khuyến nghị)
+
+#### 1. Cài đặt Docker và Docker Compose
+Đảm bảo bạn đã cài đặt Docker và Docker Compose trên máy.
+
+#### 2. Tạo file .env
+```bash
+# Tạo file .env với OpenAI API key
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+```
+
+#### 3. Chạy với Docker Compose
+```bash
+# Build và chạy ứng dụng
+docker-compose up --build
+
+# Hoặc chạy ở background
+docker-compose up -d --build
+```
+
+#### 4. Truy cập
+Mở trình duyệt và truy cập: http://localhost:8501
+
+### Cách 2: Chạy trực tiếp
+
+#### 1. Cài đặt dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Chạy ứng dụng
+#### 2. Tạo file .env
+```bash
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+```
+
+#### 3. Chạy ứng dụng
 ```bash
 streamlit run app.py
 ```
 
-### 3. Truy cập
+#### 4. Truy cập
 Mở trình duyệt và truy cập: http://localhost:8501
 
 ## 🎮 Cách sử dụng
@@ -48,8 +78,14 @@ Bot có thể nhận diện và phản hồi các loại tin nhắn:
 
 ```
 ai-chatbot/
-├── app.py              # Ứng dụng chính
-├── requirements.txt    # Dependencies
+├── app.py              # Ứng dụng Streamlit chính
+├── openai_api.py       # Module gọi OpenAI API
+├── requirements.txt    # Python dependencies
+├── Dockerfile          # Docker configuration
+├── docker-compose.yml  # Docker Compose configuration
+├── .dockerignore       # Docker ignore file
+├── static/             # Static files (images)
+│   └── robot.png       # Robot image
 └── README.md          # Documentation
 ```
 
@@ -57,9 +93,26 @@ ai-chatbot/
 
 Bạn có thể dễ dàng tùy chỉnh bot bằng cách:
 
-1. **Thêm phản hồi mới**: Chỉnh sửa `BOT_RESPONSES` trong `app.py`
-2. **Thêm từ khóa mới**: Mở rộng logic trong hàm `get_bot_response()`
-3. **Thay đổi giao diện**: Chỉnh sửa layout trong `main()`
+1. **Thay đổi OpenAI model**: Chỉnh sửa tham số `model` trong `openai_api.py`
+2. **Thay đổi system prompt**: Chỉnh sửa nội dung system message trong `openai_api.py`
+3. **Thay đổi giao diện**: Chỉnh sửa layout trong `app.py`
+4. **Thay đổi ảnh robot**: Thay thế file `static/robot.png`
+
+## 🐳 Docker Commands
+
+```bash
+# Build image
+docker build -t ai-chatbot .
+
+# Run container
+docker run -p 8501:8501 --env-file .env ai-chatbot
+
+# Stop container
+docker-compose down
+
+# View logs
+docker-compose logs -f
+```
 
 ## 🎯 Ví dụ sử dụng
 
