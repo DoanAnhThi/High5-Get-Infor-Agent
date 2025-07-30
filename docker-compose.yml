@@ -1,19 +1,37 @@
 version: '3.8'
 
 services:
+  nocodb:
+    image: nocodb/nocodb:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - NC_DISABLE_CACHE=true
+    volumes:
+      - nocodb_data:/usr/app/data/
+    restart: unless-stopped
+
   chatbot:
     build: .
     ports:
       - "8501:8501"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NOCODB_URL=http://nocodb:8080
+      - NOCODB_API_KEY=${NOCODB_API_KEY}
+      - NOCODB_PROJECT_ID=${NOCODB_PROJECT_ID}
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
     volumes:
       - ./.streamlit:/root/.streamlit
+    depends_on:
+      - nocodb
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
       timeout: 10s
-      retries: 3 
+      retries: 3
+
+volumes:
+  nocodb_data: 
