@@ -3,5 +3,5 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 # NocoDB Configuration
 NOCODB_URL=http://localhost:8080
-NOCODB_API_KEY=your_nocodb_api_key_here
-NOCODB_PROJECT_ID=your_nocodb_project_id_here 
+NOCODB_API_KEY=5gXesaC4_DPiQoU1-TQJbdKVjRx2s8SeZDWkepGY
+NOCODB_PROJECT_ID=pf3ysxyuvdb0ptg
