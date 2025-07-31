@@ -38,42 +38,37 @@ def generate_conversation_id():
     return str(uuid.uuid4())
 
 def start_new_conversation():
-    """Bắt đầu cuộc trò chuyện mới"""
+    """Bắt đầu cuộc trò chuyện mới - chỉ reset session state"""
     st.session_state.messages = []
     st.session_state.conversation_started = True
+    st.session_state.current_conversation_id = None
     
-    # Tạo conversation ID mới
-    conversation_id = generate_conversation_id()
-    st.session_state.current_conversation_id = conversation_id
-    
-    logger.debug(f"DEBUG: Creating new conversation with ID: {conversation_id}")
-    
-    # Tạo conversation mới trong database
-    if st.session_state.db:
-        try:
-            success = st.session_state.db.create_conversation(conversation_id)
-            if success:
-                logger.debug(f"DEBUG: Conversation created successfully")
-                st.success(f"✅ Cuộc trò chuyện mới đã được tạo! ID: {conversation_id[:8]}...")
-            else:
-                logger.debug(f"DEBUG: Failed to create conversation")
-                st.error("❌ Không thể tạo cuộc trò chuyện mới")
-        except Exception as e:
-            logger.debug(f"DEBUG: Error creating conversation: {e}")
-            st.error(f"Lỗi khi tạo cuộc trò chuyện mới: {e}")
+    logger.debug(f"DEBUG: Reset session state for new conversation")
+    st.success("✅ Sẵn sàng cho cuộc trò chuyện mới! Hãy nhập tin nhắn đầu tiên.")
 
 def create_conversation_and_get_id():
-    """Tạo conversation mới và trả về ID từ NocoDB"""
+    """Tạo conversation mới với UUID và lưu welcome messages khi user gửi tin nhắn đầu tiên"""
     if st.session_state.db:
         try:
-            # Tạo conversation không có custom ID
-            result = st.session_state.db.create_conversation()
+            # Tạo UUID cho conversation
+            conversation_id = generate_conversation_id()
+            
+            # Tạo conversation với UUID
+            result = st.session_state.db.create_conversation(conversation_id)
             if result:
-                # Lấy conversation mới nhất
-                conversations = st.session_state.db.get_all_conversations()
-                if conversations:
-                    latest_conv = conversations[-1]
-                    return latest_conv.get('Id')
+                logger.debug(f"DEBUG: Conversation created with UUID: {conversation_id}")
+                
+                # Set conversation ID
+                st.session_state.current_conversation_id = conversation_id
+                
+                # Lưu welcome messages vào database
+                welcome_message = "Hello! I'm Sunny 😄 How can I assist you today?"
+                web_question = "Would you like me to help you build a website? I can guide you through the entire process step by step! 🚀"
+                
+                save_message_to_db("assistant", welcome_message)
+                save_message_to_db("assistant", web_question)
+                
+                return conversation_id
             return None
         except Exception as e:
             logger.debug(f"DEBUG: Error creating conversation: {e}")
@@ -84,14 +79,37 @@ def load_conversation(conversation_id: str):
     """Load một cuộc trò chuyện từ database"""
     if st.session_state.db:
         try:
-            messages = st.session_state.db.get_conversation_messages(conversation_id)
-            st.session_state.messages = [
-                {"role": msg["role"], "content": msg["content"]} 
-                for msg in messages
-            ]
-            st.session_state.current_conversation_id = conversation_id
-            st.session_state.conversation_started = True
-            st.success(f"✅ Cuộc trò chuyện đã được tải! ID: {conversation_id[:8]}...")
+            # Tìm conversation UUID từ title
+            conversations = st.session_state.db.get_all_conversations()
+            target_conversation = None
+            
+            for conv in conversations:
+                conv_id = str(conv.get('Id', conv.get('id', '')))
+                if conv_id == conversation_id:
+                    # Lấy UUID từ title (format: "Conversation YYYY-MM-DD HH:MM:SS - UUID8")
+                    title = conv.get('title', '')
+                    if ' - ' in title:
+                        uuid_part = title.split(' - ')[-1]
+                        # Tìm conversation UUID đầy đủ từ messages
+                        messages = st.session_state.db.get_all_messages()
+                        for msg in messages:
+                            if msg.get('conversation_id', '').startswith(uuid_part):
+                                target_conversation = msg.get('conversation_id')
+                                break
+                    break
+            
+            if target_conversation:
+                # Load messages với UUID đúng
+                messages = st.session_state.db.get_conversation_messages(target_conversation)
+                st.session_state.messages = [
+                    {"role": msg["role"], "content": msg["content"]} 
+                    for msg in messages
+                ]
+                st.session_state.current_conversation_id = target_conversation
+                st.session_state.conversation_started = True
+                st.success(f"✅ Cuộc trò chuyện đã được tải! ID: {target_conversation[:8]}...")
+            else:
+                st.error("❌ Không tìm thấy cuộc trò chuyện")
         except Exception as e:
             st.error(f"Lỗi khi tải cuộc trò chuyện: {e}")
 
@@ -159,10 +177,25 @@ def main():
     if not st.session_state.conversation_started:
         st.info("👈 Click 'Cuộc trò chuyện mới' trong sidebar để bắt đầu chat!")
     else:
-        # Hiển thị tin nhắn
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        # Hiển thị welcome messages nếu chưa có conversation
+        if not st.session_state.current_conversation_id and not st.session_state.messages:
+            welcome_message = "Hello! I'm Sunny 😄 How can I assist you today?"
+            web_question = "Would you like me to help you build a website? I can guide you through the entire process step by step! 🚀"
+            
+            # Hiển thị welcome messages (không lưu vào database)
+            st.chat_message("assistant").markdown(welcome_message)
+            st.chat_message("assistant").markdown(web_question)
+            
+            # Thêm vào session state để hiển thị
+            st.session_state.messages = [
+                {"role": "assistant", "content": welcome_message},
+                {"role": "assistant", "content": web_question}
+            ]
+        else:
+            # Hiển thị tin nhắn từ session state
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
         
         # Chat input
         if prompt := st.chat_input("Nhập tin nhắn của bạn..."):
@@ -171,7 +204,7 @@ def main():
                 logger.debug("DEBUG: No conversation ID, creating new conversation")
                 conversation_id = create_conversation_and_get_id()
                 if conversation_id:
-                    st.session_state.current_conversation_id = str(conversation_id)
+                    st.session_state.current_conversation_id = conversation_id
                     logger.debug(f"DEBUG: Created conversation with ID: {conversation_id}")
                 else:
                     logger.debug("DEBUG: Failed to create conversation")

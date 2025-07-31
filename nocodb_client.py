@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import os
 from dotenv import load_dotenv
+import uuid
 
 load_dotenv()
 
@@ -56,15 +57,14 @@ class ChatDatabase:
         self.conversations_table_id = "mjcgx9i3k5d0l7o"  # ID của bảng conversations
         self.messages_table_id = None  # Sẽ cần lấy từ bảng messages
     
-    def create_conversation(self, conversation_id: str = None, title: str = None) -> bool:
-        """Create a new conversation with optional custom ID"""
-        data = {
-            "title": title or f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        }
+    def create_conversation(self, conversation_id: str = None, title: str = None) -> Dict:
+        """Create a new conversation with UUID"""
+        # Tạo title với UUID
+        conversation_title = f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {conversation_id[:8]}"
         
-        # Không gửi custom ID, để NocoDB tự tạo
-        # if conversation_id:
-        #     data["id"] = conversation_id
+        data = {
+            "title": conversation_title
+        }
         
         endpoint = f"tables/{self.conversations_table_id}/records"
         logger.debug(f"DEBUG: create_conversation endpoint: {endpoint}")
@@ -73,10 +73,10 @@ class ChatDatabase:
         result = self.client._make_request("POST", endpoint, data)
         logger.debug(f"DEBUG: create_conversation result: {result}")
         
-        return result is not None
+        return result
     
     def save_message(self, conversation_id: str, role: str, content: str) -> bool:
-        """Save a message to the conversation"""
+        """Save a message to the conversation with timestamp"""
         # Cần lấy messages table ID trước
         if not self.messages_table_id:
             logger.error("Messages table ID not set")
@@ -85,7 +85,8 @@ class ChatDatabase:
         data = {
             "conversation_id": conversation_id,
             "role": role,
-            "content": content
+            "content": content,
+            "timestamp": datetime.now().isoformat()  # Thêm timestamp
         }
         
         endpoint = f"tables/{self.messages_table_id}/records"
@@ -96,6 +97,24 @@ class ChatDatabase:
         logger.debug(f"DEBUG: save_message result: {result}")
         
         return result is not None
+    
+    def get_all_messages(self) -> List[Dict]:
+        """Get all messages"""
+        if not self.messages_table_id:
+            logger.error("Messages table ID not set")
+            return []
+            
+        endpoint = f"tables/{self.messages_table_id}/records"
+        result = self.client._make_request("GET", endpoint)
+        logger.debug(f"DEBUG: get_all_messages result: {result}")
+        
+        if result and isinstance(result, dict) and "list" in result:
+            return result["list"]
+        elif result and isinstance(result, list):
+            return result
+        else:
+            logger.debug(f"DEBUG: Unexpected result format: {type(result)}")
+            return []
     
     def get_conversation_messages(self, conversation_id: str) -> List[Dict]:
         """Get all messages for a conversation"""
